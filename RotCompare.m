@@ -39,6 +39,14 @@ transtime = 1;
 
 FPS = 120;
 
+% Establishing a timer for animations; ONLY active if video is NOT being
+% saved (saving the video takes longer, so the timer is not useful).
+% The timer isn't very good at enforcing the FPS, so generally, the timer
+% is not very accurate. But it's better than letting it go at LIGHTNING
+% speed.
+
+t = timer('StartDelay',1/FPS,'TimerFcn','0;');
+
 % Number of time steps for the transparency animation
 
 tranits = ceil(transtime*FPS)+1;
@@ -55,6 +63,11 @@ etime = 2;
 % Extra time number of total frames
 
 etframes = etime*FPS;
+
+% Variable to allow or disallow saving of video; saving the video takes a
+% TON of time, so for demonstration of this code, set it to 0.
+
+savevid = 0;
 
 % Order of vertices to produce 6 faces. If you plot these in sequence, it
 % "spirals" through them!
@@ -94,16 +107,18 @@ Eulers =	[
             
             ];
 
-
+tic
 
 Eulerinterps = linspaceNDim(zeros(1,3),Eulers(2,:),interpsize)';
+
+linEultime = toc;
 
 % Finding a rotation matrix for the final rotation given; note that
 % "spincalc" creates a matrix that is transposed (it gives rotation of
 % WORLD, not of object), so we need to transpose it).
 
 eval(sprintf('rotmat = SpinCalc(''EA%i%i%itoDCM'',Eulers(2,:))'';',Eulers(1,:)))
-eval(sprintf('rotqt = SpinCalc(''EA%i%i%itoQ'',Eulers(2,:))'';',Eulers(1,:)))
+eval(sprintf('rotqt = SpinCalc(''EA%i%i%itoQ'',Eulers(2,:));',Eulers(1,:)))
 
 % For whatever reason, the user that made SpinCalc has the quaternion
 % ordered like q = [q2, q3, q4, q1] so I have to reorder it; the logic
@@ -111,11 +126,15 @@ eval(sprintf('rotqt = SpinCalc(''EA%i%i%itoQ'',Eulers(2,:))'';',Eulers(1,:)))
 % with the matrix, again because the reported angle is from the world
 % frame, not the object frame.
 
-rotqt = [rotqt(4);-rotqt(1:3)];
+rotqt = [rotqt(4),-rotqt(1:3)];
 
 rotang = acos(rotqt(1))*2;
 
+tic
+
 linrots = linspaceNDim(eye(3),rotmat,interpsize);
+
+lintime = toc;
 
 linEuls = zeros([3,3,interpsize]);
 linEuls(:,:,1) = eye(3);
@@ -123,10 +142,27 @@ linEuls(:,:,end) = rotmat;
 
 slerprots = linEuls;
 
-slerpquats =	(repmat([1;0;0;0],[1,interpsize]).*repmat(sin(linspace(1,0,interpsize)*rotang),[4,1])+...
-                repmat(rotqt,[1,interpsize]).*repmat(sin(linspace(0,1,interpsize)*rotang),[4,1]))/sin(rotang);
+slerpquats =	(repmat([1,0,0,0],[interpsize,1]).*repmat(sin(linspace(1,0,interpsize)'*rotang),[1,4])+...
+                repmat(rotqt,[interpsize,1]).*repmat(sin(linspace(0,1,interpsize)'*rotang),[1,4]))/sin(rotang);
 
 % linear Euler calculation follows
+
+% For performance reasons, I will simply loop through an Euler angle
+% calcuation for a 321 sequence, but will then follow it with a generic one
+% using sprintf (so I can control earlier in the code what Euler sequence I
+% use: I can chooce 313, 321, etc.) eval(sprintf()) takes  a non-trivial
+% amount of time to run, so it's not fair to time that operation for
+% comparison.
+
+tic
+
+for ix = 2:interpsize-1
+    
+    linEuls(:,:,ix) = SpinCalc('EA321toDCM',Eulerinterps(ix,:))';
+    
+end
+
+linEultime = linEultime+toc;
 
 for ix = 2:interpsize-1
     
@@ -135,7 +171,7 @@ for ix = 2:interpsize-1
 end
 
 verticesfinal = (rotmat*vertices')';
-verticesfinalqt = quatrotate(rotqt',vertices);
+verticesfinalqt = quatrotate(rotqt,vertices);
 
 verticeslin = repmat(vertices,[1,1,interpsize]);
 verticeslin(:,:,1) = vertices;
@@ -143,13 +179,36 @@ verticeslin(:,:,end) = verticesfinal;
 verticeslinEul = verticeslin;
 verticesslerp = verticeslinEul;
 
+slerptime = 0;
+
 for ix = 2:interpsize-1
     
+    tic
+    
     verticeslin(:,:,ix) = (linrots(:,:,ix)*vertices')';
+    
+    lintime = lintime+toc;
+    
+    tic
+    
     verticeslinEul(:,:,ix) = (linEuls(:,:,ix)*vertices')';
-    verticesslerp(:,:,ix) = quatrotate(slerpquats(:,ix)',vertices);
+    
+    linEultime = linEultime+toc;
+    
+    tic
+    
+    verticesslerp(:,:,ix) = quatrotate(slerpquats(ix,:),vertices);
+    
+    slerptime = slerptime + toc;
     
 end
+
+% Print statements showing time to calculate matrices/quaternions AND apply
+% them to the 8 vertices
+
+fprintf('\nLinear interpolation time was %.4f seconds\n',lintime)
+fprintf('\nEuler Angle Linear interpolation time was %.4f seconds\n',linEultime)
+fprintf('\nSLERP time was %.4f seconds\n\n',slerptime)
 
 %% Plotting, initial and final boxes
 
@@ -186,7 +245,7 @@ xlabel('Global X axis')
 ylabel('Global Y axis')
 zlabel('Global Z axis')
 
-title('Final Prism, Linear Interpolation')
+title('Final Prism')
 
 subplot(1,2,1)
 
@@ -211,7 +270,7 @@ xlabel('Global X axis')
 ylabel('Global Y axis')
 zlabel('Global Z axis')
 
-title('Initial Prism, Linear Interpolation')
+title('Initial Prism')
 
 figureHandle = gcf;
 set(findall(figureHandle,'type','text'),'fontSize',14,'fontWeight','bold')
@@ -221,6 +280,12 @@ set(findall(figureHandle,'type','axes'),'fontSize',14,'fontWeight','bold')
 
 set(figureHandle,'PaperPositionMode','auto')
 print('Prism Rotation Preview','-dpng','-r0')
+
+if ~savevid
+    
+    pause(etime)
+    
+end
 
 %% Plotting, linear interpoolation (awful, includes distortion)
 
@@ -290,36 +355,80 @@ set(findall(figureHandle,'type','axes'),'fontSize',14,'fontWeight','bold')
 
 % Larger text
 
-vid = VideoWriter('rotationlin.avi');
-vid.FrameRate = 120;
-open(vid);
+if savevid
+    
+    vid = VideoWriter('rotationlin.avi');
+    vid.FrameRate = 120;
+    open(vid);
+
+end
 
 for ix = 1:tranits
     
+    if ~savevid
+        
+        start(t)
+        
+    end
+    
     set(initpris,'FaceAlpha',transvec(ix))
-    writeVideo(vid,getframe(gcf));
+    
+    if savevid
+        
+        writeVideo(vid,getframe(gcf));
+        
+    else
+        
+        wait(t)
+        
+    end
     
 end
 
 for ix = 1:interpsize
     
+    if ~savevid
+        
+        start(t)
+        
+    end
+    
     rotme = patch('Vertices',verticeslin(:,:,ix),'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
-    writeVideo(vid,getframe(gcf));
+    
+    if savevid
+        
+        writeVideo(vid,getframe(gcf));
+        
+    else
+        
+        wait(t)
+        
+    end
+    
     delete(rotme)
     
 end
 
 patch('Vertices',verticeslin(:,:,end),'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
 
-finalframe = getframe(gcf);
-
-for ix = 1:etframes
+if savevid
+        
+    finalframe = getframe(gcf);
     
-    writeVideo(vid,finalframe);
+    for ix = 1:etframes
+        
+        writeVideo(vid,finalframe);
+        
+    end
+    
+    close(vid)
+    
+else
+    
+    pause(etime)
     
 end
 
-close(vid)
 
 %% Plotting, linear interpoolation of Euler angles (no distortion, but jumpy)
 
@@ -389,36 +498,79 @@ set(findall(figureHandle,'type','axes'),'fontSize',14,'fontWeight','bold')
 
 % Larger text
 
-vid = VideoWriter('rotationlinEul.avi');
-vid.FrameRate = 120;
-open(vid);
+if savevid
+    
+    vid = VideoWriter('rotationlin.avi');
+    vid.FrameRate = 120;
+    open(vid);
+
+end
 
 for ix = 1:tranits
     
+    if ~savevid
+        
+        start(t)
+        
+    end
+    
     set(initpris,'FaceAlpha',transvec(ix))
-    writeVideo(vid,getframe(gcf));
+    
+    if savevid
+        
+        writeVideo(vid,getframe(gcf));
+        
+    else
+        
+        wait(t)
+        
+    end
     
 end
 
 for ix = 1:interpsize
     
+    if ~savevid
+        
+        start(t)
+        
+    end
+    
     rotme = patch('Vertices',verticeslinEul(:,:,ix),'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
-    writeVideo(vid,getframe(gcf));
+    
+    if savevid
+        
+        writeVideo(vid,getframe(gcf));
+        
+    else
+        
+        wait(t)
+        
+    end
+    
     delete(rotme)
     
 end
 
 patch('Vertices',verticeslinEul(:,:,end),'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
 
-finalframe = getframe(gcf);
-
-for ix = 1:etframes
+if savevid
+        
+    finalframe = getframe(gcf);
     
-    writeVideo(vid,finalframe);
+    for ix = 1:etframes
+        
+        writeVideo(vid,finalframe);
+        
+    end
+    
+    close(vid)
+    
+    else
+    
+    pause(etime)
     
 end
-
-close(vid)
 
 %% Plotting, SLERP (delicious, spicy algorithm)
 
@@ -488,36 +640,79 @@ set(findall(figureHandle,'type','axes'),'fontSize',14,'fontWeight','bold')
 
 % Larger text
 
-vid = VideoWriter('rotationslerp.avi');
-vid.FrameRate = 120;
-open(vid);
+if savevid
+    
+    vid = VideoWriter('rotationlin.avi');
+    vid.FrameRate = 120;
+    open(vid);
+
+end
 
 for ix = 1:tranits
     
+    if ~savevid
+        
+        start(t)
+        
+    end
+    
     set(initpris,'FaceAlpha',transvec(ix))
-    writeVideo(vid,getframe(gcf));
+    
+    if savevid
+        
+        writeVideo(vid,getframe(gcf));
+        
+    else
+        
+        wait(t)
+        
+    end
     
 end
 
 for ix = 1:interpsize
     
+    if ~savevid
+        
+        start(t)
+        
+    end
+    
     rotme = patch('Vertices',verticesslerp(:,:,ix),'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
-    writeVideo(vid,getframe(gcf));
+    
+    if savevid
+        
+        writeVideo(vid,getframe(gcf));
+        
+    else
+        
+        wait(t)
+        
+    end
+    
     delete(rotme)
     
 end
 
 patch('Vertices',verticesslerp(:,:,end),'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
 
-finalframe = getframe(gcf);
-
-for ix = 1:etframes
+if savevid
+        
+    finalframe = getframe(gcf);
     
-    writeVideo(vid,finalframe);
+    for ix = 1:etframes
+        
+        writeVideo(vid,finalframe);
+        
+    end
+    
+    close(vid)
+    
+    else
+    
+    pause(etime)
     
 end
-
-close(vid)
 
 %% Closer comparison of Euler and SLERP
 
@@ -587,17 +782,36 @@ set(findall(figureHandle,'type','axes'),'fontSize',14,'fontWeight','bold')
 
 % Larger text
 
-vid = VideoWriter('rotationscompare.avi');
-vid.FrameRate = 120;
-open(vid);
+if savevid
+    
+    vid = VideoWriter('rotationscompare.avi');
+    vid.FrameRate = 120;
+    open(vid);
+    
+end
 
 for ix = 1:interpsize
+    
+    if ~savevid
+        
+        start(t)
+        
+    end
     
     subplot(1,2,1)
     rotme1 = patch('Vertices',verticeslinEul(:,:,ix),'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
     subplot(1,2,2)
     rotme2 = patch('Vertices',verticesslerp(:,:,ix),'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
-    writeVideo(vid,getframe(gcf));
+    
+    if savevid
+        
+        writeVideo(vid,getframe(gcf));
+        
+    else
+        
+        wait(t)
+        
+    end
     delete(rotme1)
     delete(rotme2)
     
@@ -608,12 +822,20 @@ patch('Vertices',verticeslinEul(:,:,end),'Faces',faceorder,'FaceColor','flat','F
 subplot(1,2,2)
 patch('Vertices',verticesslerp(:,:,end),'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
 
-finalframe = getframe(gcf);
-
-for ix = 1:etframes
+if savevid
     
-    writeVideo(vid,finalframe);
+    finalframe = getframe(gcf);
+    
+    for ix = 1:etframes
+    
+        writeVideo(vid,finalframe);
+    
+    end
+    
+    close(vid)
+    
+else
+    
+    pause(etime)
     
 end
-
-close(vid)
