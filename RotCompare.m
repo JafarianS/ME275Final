@@ -128,7 +128,11 @@ eval(sprintf('rotqt = SpinCalc(''EA%i%i%itoQ'',Eulers(2,:));',Eulers(1,:)))
 
 rotqt = [rotqt(4),-rotqt(1:3)];
 
+tic
+
 rotang = acos(rotqt(1))*2;
+
+slerptime = toc;
 
 tic
 
@@ -178,8 +182,6 @@ verticeslin(:,:,1) = vertices;
 verticeslin(:,:,end) = verticesfinal;
 verticeslinEul = verticeslin;
 verticesslerp = verticeslinEul;
-
-slerptime = 0;
 
 for ix = 2:interpsize-1
     
