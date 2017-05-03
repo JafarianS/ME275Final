@@ -151,9 +151,9 @@ for ix = 2:interpsize-1
     
 end
 
-%% Plotting, linear interpoolation (awful, includes distortion)
+%% Plotting, initial and final boxes
 
-figure(1)
+figme = figure(1);
 
 clf
 
@@ -169,7 +169,78 @@ hold on
 
 % Building final prism
 
-finalpris = patch('Vertices',verticesfinal,'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
+patch('Vertices',verticesfinal,'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
+
+% Miscellaneous plot commands to make everything look nicer (we're using
+% an isometric 3D view angle)
+
+axis equal
+grid on
+
+axis(axnew)
+
+% Isometric view angle
+view(-45,35.264)
+
+xlabel('Global X axis')
+ylabel('Global Y axis')
+zlabel('Global Z axis')
+
+title('Final Prism, Linear Interpolation')
+
+subplot(1,2,1)
+
+hold on
+
+% Building initial prism
+
+patch('Vertices',vertices,'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
+
+% Miscellaneous plot commands to make everything look nicer (we're using
+% an isometric 3D view angle)
+
+axis equal
+grid on
+
+axis(axnew)
+
+% Isometric view angle
+view(-45,35.264)
+
+xlabel('Global X axis')
+ylabel('Global Y axis')
+zlabel('Global Z axis')
+
+title('Initial Prism, Linear Interpolation')
+
+figureHandle = gcf;
+set(findall(figureHandle,'type','text'),'fontSize',14,'fontWeight','bold')
+set(findall(figureHandle,'type','axes'),'fontSize',14,'fontWeight','bold')
+
+% Larger text
+
+set(figureHandle,'PaperPositionMode','auto')
+print('Prism Rotation Preview','-dpng','-r0')
+
+%% Plotting, linear interpoolation (awful, includes distortion)
+
+figure(2)
+
+clf
+
+pause(10^-8)
+frame_h = get(handle(gcf),'JavaFrame');
+set(frame_h,'Maximized',1);
+
+% This maximizes the window for us automatically
+
+subplot(1,2,2)
+
+hold on
+
+% Building final prism
+
+patch('Vertices',verticesfinal,'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
 
 % Miscellaneous plot commands to make everything look nicer (we're using
 % an isometric 3D view angle)
@@ -207,7 +278,6 @@ axis(axnew)
 % Isometric view angle
 view(-45,35.264)
 
-
 xlabel('Global X axis')
 ylabel('Global Y axis')
 zlabel('Global Z axis')
@@ -231,7 +301,6 @@ for ix = 1:tranits
     
 end
 
-
 for ix = 1:interpsize
     
     rotme = patch('Vertices',verticeslin(:,:,ix),'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
@@ -254,7 +323,7 @@ close(vid)
 
 %% Plotting, linear interpoolation of Euler angles (no distortion, but jumpy)
 
-figure(2)
+figure(3)
 
 clf
 
@@ -270,7 +339,7 @@ hold on
 
 % Building final prism
 
-finalpris = patch('Vertices',verticesfinal,'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
+patch('Vertices',verticesfinal,'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
 
 % Miscellaneous plot commands to make everything look nicer (we're using
 % an isometric 3D view angle)
@@ -308,7 +377,6 @@ axis(axnew)
 % Isometric view angle
 view(-45,35.264)
 
-
 xlabel('Global X axis')
 ylabel('Global Y axis')
 zlabel('Global Z axis')
@@ -332,7 +400,6 @@ for ix = 1:tranits
     
 end
 
-
 for ix = 1:interpsize
     
     rotme = patch('Vertices',verticeslinEul(:,:,ix),'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
@@ -355,7 +422,7 @@ close(vid)
 
 %% Plotting, SLERP (delicious, spicy algorithm)
 
-figure(3)
+figure(4)
 
 clf
 
@@ -371,7 +438,7 @@ hold on
 
 % Building final prism
 
-finalpris = patch('Vertices',verticesfinal,'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
+patch('Vertices',verticesfinal,'Faces',faceorder,'FaceColor','flat','FaceVertexCData',col,'FaceAlpha',maxtrans,'EdgeColor','k','LineWidth',2);
 
 % Miscellaneous plot commands to make everything look nicer (we're using
 % an isometric 3D view angle)
@@ -408,7 +475,6 @@ axis(axnew)
 
 % Isometric view angle
 view(-45,35.264)
-
 
 xlabel('Global X axis')
 ylabel('Global Y axis')
@@ -455,7 +521,7 @@ close(vid)
 
 %% Closer comparison of Euler and SLERP
 
-figure(4)
+figure(5)
 
 clf
 
