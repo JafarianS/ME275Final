@@ -146,7 +146,9 @@ linEuls(:,:,end) = rotmat;
 
 slerprots = linEuls;
 
-slerpquats =	(repmat([1,0,0,0],[interpsize,1]).*repmat(sin(linspace(1,0,interpsize)'*rotang),[1,4])+...
+Iqt = [1,zeros(1,3)];
+
+slerpquats =	(repmat(Iqt,[interpsize,1]).*repmat(sin(linspace(1,0,interpsize)'*rotang),[1,4])+...
                 repmat(rotqt,[interpsize,1]).*repmat(sin(linspace(0,1,interpsize)'*rotang),[1,4]))/sin(rotang);
 
 % linear Euler calculation follows
@@ -211,6 +213,17 @@ end
 fprintf('\nLinear interpolation time was %.4f seconds\n',lintime)
 fprintf('\nEuler Angle Linear interpolation time was %.4f seconds\n',linEultime)
 fprintf('\nSLERP time was %.4f seconds\n\n',slerptime)
+
+fprintf('The identity rotation matrix is:\n\n')
+Irot = eye(3)
+fprintf('The final rotation matrix is:\n\n')
+rotmat
+
+fprintf('The identity rotation quaternion is:\n\n')
+Iqt
+fprintf('The final rotation quaternion is:\n\n')
+rotqt
+
 
 %% Plotting, initial and final boxes
 
