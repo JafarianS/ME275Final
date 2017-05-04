@@ -100,12 +100,18 @@ col =	[
         
         ];
 
+% Euler angles; I have chosen a 3,2,1 sequence, but any (valid) sequence
+% can be put in here for fun.
+    
 Eulers =	[
             
             3,  2,	1;
             70,	50,	10;
             
             ];
+
+% Timing how long it takes to interpolate the Euler angles for the Euler
+% angle interpolation scheme
 
 tic
 
@@ -128,11 +134,17 @@ eval(sprintf('rotqt = SpinCalc(''EA%i%i%itoQ'',Eulers(2,:));',Eulers(1,:)))
 
 rotqt = [rotqt(4),-rotqt(1:3)];
 
+% Timing determination of the rotation angle; I consider this part of the
+% interpolation scheme, so I need to time it
+
 tic
 
 rotang = acos(rotqt(1))*2;
 
 slerptime = toc;
+
+% Timing generation of the linear interpolation of each rotation tensor
+% value
 
 tic
 
@@ -140,16 +152,29 @@ linrots = linspaceNDim(eye(3),rotmat,interpsize);
 
 lintime = toc;
 
+% Pre-allocating the interpolated rotation tensors from the Euler angle
+% linear interpolation. We know the initial and final tensors already, so
+% we can save some time by filling those in.
+
 linEuls = zeros([3,3,interpsize]);
+
 linEuls(:,:,1) = eye(3);
 linEuls(:,:,end) = rotmat;
 
-slerprots = linEuls;
+% Establishing an identity quaternion
 
 Iqt = [1,zeros(1,3)];
 
+% Setting up the SLERP quaternions; so this is a large set of quaternions
+% (1001 of them). For fairness of comparison, I time this calculation as
+% well.
+
+tic
+
 slerpquats =	(repmat(Iqt,[interpsize,1]).*repmat(sin(linspace(1,0,interpsize)'*rotang),[1,4])+...
                 repmat(rotqt,[interpsize,1]).*repmat(sin(linspace(0,1,interpsize)'*rotang),[1,4]))/sin(rotang);
+
+slerptime = slerptime + toc;
 
 % linear Euler calculation follows
 
@@ -170,20 +195,32 @@ end
 
 linEultime = linEultime+toc;
 
+% This overwrites what we just did, but does so more generically so it's
+% easier for me to choose the Euler angle sequence earlier.
+
 for ix = 2:interpsize-1
     
     eval(sprintf('linEuls(:,:,ix) = SpinCalc(''EA%i%i%itoDCM'',Eulerinterps(ix,:))'';',Eulers(1,:)))
     
 end
 
+% A matrix of the final vertices, just for quick reference; generated with
+% both the final rotation tensor AND the final quaternion; they should be
+% (and are) equal if everything came out right...
+
 verticesfinal = (rotmat*vertices')';
 verticesfinalqt = quatrotate(rotqt,vertices);
 
+% Pre-allocating all the intermediate matrices of vertex locations (so this
+% is size 8 x 3 x 1001). We already know what the final vertices are, so we
+% can just save some time here by throwing that in there.
+
 verticeslin = repmat(vertices,[1,1,interpsize]);
-verticeslin(:,:,1) = vertices;
 verticeslin(:,:,end) = verticesfinal;
 verticeslinEul = verticeslin;
 verticesslerp = verticeslinEul;
+
+% Interpolating the vertices for each scheme.
 
 for ix = 2:interpsize-1
     
@@ -293,14 +330,13 @@ set(findall(figureHandle,'type','axes'),'fontSize',14,'fontWeight','bold')
 
 % Larger text
 
+% Saving this figure and also pausing for the user's enjoyment if we aren't
+% trying to rush through saving the animations.
+
 set(figureHandle,'PaperPositionMode','auto')
 print('Prism Rotation Preview','-dpng','-r0')
 
-if ~savevid
-    
-    pause(etime)
-    
-end
+pause(etime)
 
 %% Plotting, linear interpoolation (awful, includes distortion)
 
@@ -369,6 +405,10 @@ set(findall(figureHandle,'type','text'),'fontSize',14,'fontWeight','bold')
 set(findall(figureHandle,'type','axes'),'fontSize',14,'fontWeight','bold')
 
 % Larger text
+
+% The following commands are for animation: either we only animate, at
+% roughly the chosen FPS OR we save the animation as a .avi as fast as
+% possible (this is basically ALWAYS slower than any reasonable FPS).
 
 if savevid
     
@@ -513,9 +553,13 @@ set(findall(figureHandle,'type','axes'),'fontSize',14,'fontWeight','bold')
 
 % Larger text
 
+% The following commands are for animation: either we only animate, at
+% roughly the chosen FPS OR we save the animation as a .avi as fast as
+% possible (this is basically ALWAYS slower than any reasonable FPS).
+
 if savevid
     
-    vid = VideoWriter('rotationlin.avi');
+    vid = VideoWriter('rotationlinEul.avi');
     vid.FrameRate = 120;
     open(vid);
 
@@ -655,9 +699,13 @@ set(findall(figureHandle,'type','axes'),'fontSize',14,'fontWeight','bold')
 
 % Larger text
 
+% The following commands are for animation: either we only animate, at
+% roughly the chosen FPS OR we save the animation as a .avi as fast as
+% possible (this is basically ALWAYS slower than any reasonable FPS).
+
 if savevid
     
-    vid = VideoWriter('rotationlin.avi');
+    vid = VideoWriter('rotationslerp.avi');
     vid.FrameRate = 120;
     open(vid);
 
@@ -796,6 +844,10 @@ set(findall(figureHandle,'type','text'),'fontSize',14,'fontWeight','bold')
 set(findall(figureHandle,'type','axes'),'fontSize',14,'fontWeight','bold')
 
 % Larger text
+
+% The following commands are for animation: either we only animate, at
+% roughly the chosen FPS OR we save the animation as a .avi as fast as
+% possible (this is basically ALWAYS slower than any reasonable FPS).
 
 if savevid
     
